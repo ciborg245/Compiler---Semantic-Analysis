@@ -62,6 +62,7 @@ codeTPCompileButton.addEventListener("click", function() {
         } else {
             console.log("No errors found.");
             errorsArea.value = "No errors found.";
+            taCodeArea.value = "";
             for (var i = 0; i < res.taCode.length; i++)
                 taCodeArea.value += res.taCode[i] + "\n";
             document.getElementById('nav4').click();

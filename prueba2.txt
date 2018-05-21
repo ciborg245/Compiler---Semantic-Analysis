@@ -27,7 +27,7 @@ class Example {
         	d = 5;
         }
 
-		while (a < 10) {
+		while (a < 10 && a <= 30 || a > 5) {
 			a = a + 1;
 		}
 

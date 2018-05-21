@@ -11,7 +11,8 @@ function Visitor() {
     this.lastUsed = null;
     this.tCont = 0;
     this.labelCont = 0;
-    this.ifFlag = false;
+    this.ifGlobalCont = [];
+    this.localGlobal = "L";
 }
 
 Visitor.prototype.vProgram = function(node) {
@@ -145,7 +146,8 @@ Visitor.prototype.vVarDeclaration = function(node) {
             this.symbolTable.addItem(id, {
                 'type': type,
                 'symbol': 'array',
-                'width' : width
+                'width' : width,
+                'elements' : children[3].getValue()
             });
 
             return true
@@ -207,6 +209,8 @@ Visitor.prototype.vMethodDeclaration = function(node) {
 
         this.taCode.push("BEGIN_"+id);
 
+        this.localGlobal = id == "main" ? "G" : "L";
+
         //Se leen los parametros
         let i = 3;
         this.symbolTable.addScope();
@@ -221,6 +225,8 @@ Visitor.prototype.vMethodDeclaration = function(node) {
         this.symbolTable.deleteScope();
         this.methodControl.pop();
         this.taCode.push("END_"+id);
+
+        this.localGlobal = "L";
 
         return res;
     } else {
@@ -315,6 +321,8 @@ Visitor.prototype.vStatement = function(node) {
 Visitor.prototype.vIfStatement = function(node) {
     let children = node.getNext();
 
+    this.ifGlobalCont.push(this.labelCont);
+    // this.taCode.push("IF ");
     let resExpr = this.vExpression(children[2]);
     if (resExpr != "boolean") {
         this.error += "Error: Expression on IF is not boolean. Line " + children[0].getLine() + ".\n"
@@ -322,22 +330,25 @@ Visitor.prototype.vIfStatement = function(node) {
     }
 
     let tempLastUsed = this.lastUsed;
+    let lastIfGlobalCont = this.ifGlobalCont.pop();
 
-    this.taCodeLine = `LABEL_TRUE_${tempLastUsed}:`;
+    this.taCodeLine = `LABEL_TRUE_${this.labelCont-1}:`;
     this.taCode.push(this.taCodeLine);
     let res = this.vBlock(children[4]);
-    this.taCodeLine = `GOTO LABEL_END_IF_${tempLastUsed}:`;
+    this.taCodeLine = `GOTO LABEL_END_IF_${lastIfGlobalCont}:`;
     this.taCode.push(this.taCodeLine);
 
 
-    this.taCodeLine = `LABEL_FALSE_${tempLastUsed}:`;
+    this.taCodeLine = `LABEL_FALSE_${lastIfGlobalCont}:`;
     this.taCode.push(this.taCodeLine);
     if (children.length > 5) {
         res = res && this.vBlock(children[6]);
     }
 
-    this.taCodeLine = `LABEL_END_IF_${tempLastUsed}:`
+    this.taCodeLine = `LABEL_END_IF_${lastIfGlobalCont}:`
     this.taCode.push(this.taCodeLine);
+
+    this.labelCont++;
 
     return res;
 }
@@ -345,7 +356,9 @@ Visitor.prototype.vIfStatement = function(node) {
 Visitor.prototype.vWhileStatement = function(node) {
     let children = node.getNext();
 
-    this.taCodeLine = `LABEL_WHILE_${this.labelCont}:`;
+    this.ifGlobalCont.push(this.labelCont);
+
+    this.taCodeLine = `LABEL_WHILE_${this.ifGlobalCont}:`;
     this.taCode.push(this.taCodeLine);
     let expRes = this.vExpression(children[2]);
     if (expRes != "boolean") {
@@ -354,14 +367,14 @@ Visitor.prototype.vWhileStatement = function(node) {
     }
 
     let tempLastUsed = this.lastUsed;
+    let lastIfGlobalCont = this.ifGlobalCont.pop();
 
-
-    this.taCodeLine = `LABEL_TRUE_${tempLastUsed}:`;
+    this.taCodeLine = `LABEL_TRUE_${this.labelCont-1}:`;
     this.taCode.push(this.taCodeLine);
     let res = this.vBlock(children[4]);
-    this.taCodeLine = `GOTO LABEL_WHILE_${tempLastUsed}:`;
+    this.taCodeLine = `GOTO LABEL_WHILE_${lastIfGlobalCont}:`;
     this.taCode.push(this.taCodeLine);
-    this.taCodeLine = `LABEL_FALSE_${tempLastUsed}:`;
+    this.taCodeLine = `LABEL_FALSE_${lastIfGlobalCont}:`;
     this.taCode.push(this.taCodeLine);
 
     return res;
@@ -386,7 +399,7 @@ Visitor.prototype.vReturnStatement = function(node) {
                     return false
                 } else {
                     this.taCodeLine = `RETURN ${this.lastUsed}`;
-                    this.taCode.push(this.taCodeLine);  
+                    this.taCode.push(this.taCodeLine);
                     return true
                 }
             }
@@ -422,9 +435,10 @@ Visitor.prototype.vLocationStatement = function(node) {
     let children = node.getNext();
 
     let locRes = this.vLocation(children[0]);
-    this.taCodeLine = `\t${this.lastUsed} = ` ;
+    let tempLine = `\t${this.lastUsed} = ` ;
     let expRes = this.vExpression(children[2]);
-    this.taCodeLine += this.lastUsed;
+    this.taCodeLine = tempLine + this.lastUsed;
+
     if (locRes != expRes) {
         this.error += locRes != "error" ?
         "Error: Assigning wrong value. Location is " + locRes.toUpperCase() + ". Line " + children[1].getLine() + ".\n" :
@@ -507,7 +521,8 @@ Visitor.prototype.vLocation = function(node, local = null, offset = 0) {
                         return "error"
                     }
                 } else {
-                    this.lastUsed = `L[${variable.offset + offset}]`;
+                    let arrayOffset = variable.width / variable.elements * this.lastUsed;
+                    this.lastUsed = `${this.localGlobal}[${variable.offset + offset + arrayOffset}]`;
                     return variable.type
                 }
             } else {
@@ -535,13 +550,13 @@ Visitor.prototype.vLocation = function(node, local = null, offset = 0) {
                 }
             }
         } else {
-            this.lastUsed = `L[${variable.offset + offset}]`;
-            return variable.type;
+            this.lastUsed = `${this.localGlobal}[${variable.offset + offset}]`;
+            return variable.type
         }
     } else {
         this.error += local == null ? "Error: The variable '" + id + "' has not been declared yet. Line " + children[0].getLine() + ".\n"
             : "Error: Property '" + id + "' doesn't exist. Line " + children[0].getLine() + ".\n";
-        return "error";
+        return "error"
     }
 }
 
@@ -549,186 +564,269 @@ Visitor.prototype.vExpression = function(node) {
     let children = node.getNext();
 
     let res;
-    if (children[0].getValue() == "location") {
-        res = this.vLocationExpr(node);
-    } else if (children[0].getValue() == "literal") {
-        res = this.vLiteralExpr(node);
-    } else if (children[0].getValue() == "-") {
-        res = this.minusExpr(node);
-    } else if (children[0].getValue() == "!") {
-        res = this.negExpr(node);
-    } else if (children[0].getValue() == "term") {
-        res = this.termExpr(node);
-    } else if (children[1].getValue() == "arith_op") {
-        res = this.arithExpr(node);
-    } else if (children[1].getValue() == "rel_op") {
-        res = this.relExpr(node);
-    } else if (children[1].getValue() == "eq_op") {
-        res = this.eqExpr(node);
-    } else if (children[1].getValue() == "cond_op") {
-        res = this.condExpr(node);
+    if (children[0].getValue() == "(") {
+        res = this.seventhLevel(children[1])
+    } else if (children[0].getValue() == "seventhLevel") {
+        res = this.seventhLevel(children[0])
+    } else if (children[0].getValue() == "omegaLevel") {
+        res = this.vOmegaLevel(children[0])
     }
 
-    return res;
+    return res
 }
 
-Visitor.prototype.vLocationExpr = function(node) {
-    let child = node.getNext()[0];
-
-    let res = this.vLocation(child);
-
-    return res;
-}
-
-Visitor.prototype.vLiteralExpr = function(node) {
-    let child = node.getNext()[0];
-
-    let res = this.vLiteral(child);
-
-    return res;
-}
-
-Visitor.prototype.arithExpr = function(node) {
-    let children = node.getNext();
-    let tempTac = "";
-    let tempLastUsed;
-
-    let expRes = this.vExpression(children[0]);
-    tempTac += `${this.lastUsed} ${children[1].getNext()[0].getValue()} `;
-
-    let termRes = this.vTerm(children[2]);
-    tempTac += `${this.lastUsed}`;
-
-    tempTac = `\tt${this.tCont} = ` + tempTac;
-    tempLastUsed = `t${this.tCont}`;
-    this.tCont++;
-
-    if (expRes != "int") {
-        this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
-        return "error"
-    } else if (termRes != "int") {
-        this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
-        return "error"
-    }
-
-    this.taCode.push(tempTac);
-    this.lastUsed = tempLastUsed;
-    return "int";
-}
-
-Visitor.prototype.relExpr = function(node) {
-    let children = node.getNext();
-    let tempTac = "";
-    let tempLastUsed;
-
-    let expRes = this.vExpression(children[0]);
-    tempTac += `${this.lastUsed} ${children[1].getNext()[0].getValue()} `;
-
-    let termRes = this.vTerm(children[2]);
-    tempTac += `${this.lastUsed}`;
-
-
-    tempTac = `IF ${tempTac} GOTO LABEL_TRUE_${this.labelCont}`;
-    this.taCode.push(tempTac);
-    tempTac = `GOTO LABEL_FALSE_${this.labelCont}`;
-    this.taCode.push(tempTac);
-    tempLastUsed = `${this.labelCont}`;
-    this.labelCont += 1;
-
-    if (expRes != "int") {
-        this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
-        return "error"
-    } else if (termRes != "int") {
-        this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
-        return "error"
-    }
-
-    this.lastUsed = tempLastUsed;
-    return "boolean";
-
-}
-
-Visitor.prototype.eqExpr = function(node) {
-    let children = node.getNext();
-    let tempTac = "";
-    let tempLastUsed;
-
-    let expRes = this.vExpression(children[0]);
-    tempTac += `${this.lastUsed} ${children[1].getNext()[0].getValue()} `;
-
-    let termRes = this.vTerm(children[2]);
-    tempTac += `${this.lastUsed}`;
-
-    tempTac = `IF ${tempTac} GOTO LABEL_TRUE_${this.labelCont}`;
-    this.taCode.push(tempTac);
-    tempTac = `GOTO LABEL_FALSE_${this.labelCont}`;
-    this.taCode.push(tempTac);
-    tempLastUsed = `${this.labelCont}`;
-    this.labelCont += 1;
-
-    if (expRes != termRes) {
-        if (expRes == "error" || termRes == "error")
-            this.error += "Error: Cannot compare different types. Line " + children[1].getNext()[0].getLine() + ".\n";
-        else
-            this.error += "Error: Cannot compare " + expRes.toUpperCase() + " and " + termRes.toUpperCase() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
-        return "error"
-    }
-
-    this.lastUsed = tempLastUsed;
-    return "boolean";
-
-}
-
-Visitor.prototype.condExpr = function(node) {
-    let children = node.getNext();
-
-    let resExp = this.vExpression(children[0]);
-    let resTerm = this.vTerm(children[2]);
-
-    if (resExp != "boolean") {
-        this.error += "Error: Cannot use non-booleans with operator &&. Line " + children[1].getNext()[0].getLine() + ".\n";
-        return "error"
-    } else if (resTerm != "boolean") {
-        this.error += "Error: Cannot use non-booleans with operator &&. Line " + children[1].getNext()[0].getLine() + ".\n";
-        return "error"
-    }
-
-    return "boolean";
-
-}
-
-Visitor.prototype.minusExpr = function(node) {
+Visitor.prototype.vOmegaLevel = function(node) {
     let children = node.getNext();
     let res;
 
-    let expRes = this.vExpression(children[1]);
+    if (children[0].getValue() == "location") {
+        res = this.vLocation(children[0]);
+    } else if (children[0].getValue() == "literal") {
+        res = this.vLiteral(children[0]);
+    } else if (children[0].getValue() == "methodCall") {
+        res = this.vMethodCall(children[0]);
+    }
+
+    return res
+}
+
+// ---------------------------- OR ----------------------------
+Visitor.prototype.seventhLevel = function(node) {
+    let children = node.getNext();
+
+    if (children[0].getValue() == "sixthLevel") {
+        return this.sixthLevel(children[0])
+    } else {
+        let leftRes  = this.seventhLevel(children[0]);
+
+        let tempTac = `LABEL_TRUE_${this.lastUsed}:`;
+
+        let rightRes = this.sixthLevel(children[2]);
+
+        this.taCode.push(tempTac);
+
+        if (leftRes != "boolean") {
+            this.error += "Error: Cannot use non-booleans with operator ||. Line " + children[1].getNext()[0].getLine() + ".\n";
+            return "error"
+        } else if (rightRes != "boolean") {
+            this.error += "Error: Cannot use non-booleans with operator ||. Line " + children[1].getNext()[0].getLine() + ".\n";
+            return "error"
+        }
+
+        return "boolean"
+    }
+}
+
+// ---------------------------- AND ----------------------------
+Visitor.prototype.sixthLevel = function(node) {
+    let children = node.getNext();
+
+    if (children[0].getValue() == "fifthLevel") {
+        return this.fifthLevel(children[0])
+    }  else {
+        let leftRes = this.sixthLevel(children[0]);
+
+        let tempTac = `LABEL_TRUE_${this.lastUsed}:`;
+        this.taCode.push(tempTac);
+
+        let rightRes = this.fifthLevel(children[2]);
+
+        if (leftRes != "boolean") {
+            this.error += "Error: Cannot use non-booleans with operator &&. Line " + children[1].getLine() + ".\n";
+            return "error"
+        } else if (rightRes != "boolean") {
+            this.error += "Error: Cannot use non-booleans with operator &&. Line " + children[1].getLine() + ".\n";
+            return "error"
+        }
+
+        return "boolean"
+    }
+}
+
+// ---------------------------- == / != ----------------------------
+Visitor.prototype.fifthLevel = function(node) {
+    let children = node.getNext();
+
+    if (children[0].getValue() == "fourthLevel") {
+        return this.fourthLevel(children[0])
+    } else {
+        let tempTac = "";
+        let tempLastUsed;
+
+        let leftRes = this.fifthLevel(children[0]);
+        tempTac += `${this.lastUsed} ${children[1].getNext()[0].getValue()} `;
+
+        let rightRes = this.fourthLevel(children[2]);
+        tempTac += `${this.lastUsed}`;
+
+        tempTac = `IF ${tempTac} GOTO LABEL_TRUE_${this.labelCont}`;
+        this.taCode.push(tempTac);
+        tempTac = `GOTO LABEL_FALSE_${this.ifGlobalCont}`;
+        this.taCode.push(tempTac);
+        tempLastUsed = `${this.labelCont}`;
+        this.labelCont += 1;
+
+        if (leftRes != rightRes) {
+            if (leftRes == "error" || rightRes == "error")
+                this.error += "Error: Cannot compare different types. Line " + children[1].getNext()[0].getLine() + ".\n";
+            else
+                this.error += "Error: Cannot compare " + leftRes.toUpperCase() + " and " + rightRes.toUpperCase() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
+            return "error"
+        }
+
+        this.lastUsed = tempLastUsed;
+
+        return "boolean"
+    }
+}
+
+// ------------------------ < / > / <= / >= ------------------------
+Visitor.prototype.fourthLevel = function(node) {
+    let children = node.getNext();
+
+    if (children[0].getValue() == "thirdLevel") {
+        return this.thirdLevel(children[0]);
+    } else {
+        let tempTac = "";
+        let tempLastUsed;
+
+        let leftRes = this.fourthLevel(children[0]);
+        tempTac += `${this.lastUsed} ${children[1].getNext()[0].getValue()} `;
+
+        let rightRes = this.thirdLevel(children[2]);
+        tempTac += `${this.lastUsed}`;
+
+        tempTac = `IF ${tempTac} GOTO LABEL_TRUE_${this.labelCont}`;
+        this.taCode.push(tempTac);
+        tempTac = `GOTO LABEL_FALSE_${this.ifGlobalCont}`;
+        this.taCode.push(tempTac);
+        tempLastUsed = `${this.labelCont}`;
+        this.labelCont += 1;
+
+        if (leftRes != "int") {
+            this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
+            return "error"
+        } else if (rightRes != "int") {
+            this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
+            return "error"
+        }
+
+        this.lastUsed = tempLastUsed;
+
+        return "boolean"
+    }
+}
+
+// ------------------------ + / - ------------------------
+Visitor.prototype.thirdLevel = function(node) {
+    let children = node.getNext();
+
+    if (children[0].getValue() == "secondLevel") {
+        return this.secondLevel(children[0])
+    } else {
+        let tempTac = "";
+        let tempLastUsed;
+
+        let leftRes = this.thirdLevel(children[0]);
+        tempTac += `${this.lastUsed} ${children[1].getNext()[0].getValue()} `;
+
+        let rightRes = this.secondLevel(children[2]);
+        tempTac += `${this.lastUsed}`;
+
+        tempTac = `\tt${this.tCont} = ` + tempTac;
+        tempLastUsed = `t${this.tCont}`;
+        this.tCont++;
+
+        if (leftRes != "int") {
+            this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
+            return "error"
+        } else if (rightRes != "int") {
+            this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
+            return "error"
+        }
+
+        this.taCode.push(tempTac);
+        this.lastUsed = tempLastUsed;
+
+        return "int"
+    }
+}
+
+// ------------------------ * / '/' / % ------------------------
+Visitor.prototype.secondLevel = function(node) {
+    let children = node.getNext();
+
+    if (children[0].getValue() == "firstLevel") {
+        return this.firstLevel(children[0])
+    } else {
+        let tempTac = ``;
+        let tempLastUsed;
+
+        let leftRes = this.secondLevel(children[0]);
+        tempTac += `${this.lastUsed} ${children[1].getNext()[0].getValue()} `;
+
+        let rightRes = this.firstLevel(children[2]);
+        tempTac += `${this.lastUsed}`;
+
+        tempTac = `\tt${this.tCont} = ` + tempTac;
+        tempLastUsed = `t${this.tCont}`;
+        this.tCont++;
+
+        if (leftRes != "int") {
+            this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
+            return "error"
+        } else if (rightRes != "int") {
+            this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
+            return "error"
+        }
+
+        this.taCode.push(tempTac);
+        this.lastUsed = tempLastUsed;
+
+        return "int"
+    }
+}
+
+Visitor.prototype.firstLevel = function(node) {
+    let children = node.getNext();
+    let res;
+
+    if (children[0].getValue() == "!") {
+        res = this.minusFL(node)
+    } else if (children[0].getValue() == "-") {
+        res = this.minusFL(node)
+    } else if (children[0].getValue() == "omegaLevel") {
+        res = this.vOmegaLevel(children[0])
+    }
+
+    return res
+}
+
+// ------------------------ ! / - ------------------------
+Visitor.prototype.minusFL = function(node) {
+    let children = node.getNext();
+    let res;
+
+    let expRes = this.vOmegaLevel(children[1]);
     if (expRes != "int") {
         this.error += "Error: Cannot use the negative '-' of non-integers. Line " + children[0].getLine() + ".\n";
         return "error"
     }
 
-    return expRes;
+    return expRes
 }
 
-Visitor.prototype.negExpr = function(node) {
+Visitor.prototype.negFL = function(node) {
     let children = node.getNext();
 
-    let expRes = this.vExpression(children[1]);
+    let expRes = this.vOmegaLevel(children[1]);
     if (expRes != "boolean") {
         this.error += "Error: Cannot use '!' with non-booleans. Line" + children[0].getLine() + ".\n";
         return "error"
     }
 
-    return expRes;
+    return expRes
 
-}
-
-Visitor.prototype.termExpr = function(node) {
-    let child = node.getNext()[0];
-
-    let res = this.vTerm(child);
-
-    return res;
 }
 
 Visitor.prototype.vMethodCall = function(node) {
@@ -742,24 +840,29 @@ Visitor.prototype.vMethodCall = function(node) {
             return "error"
         }
 
-        this.taCodeLine = "BEGIN PARAMS";
-        this.taCode.push(this.taCodeLine);
-
         let cont = 2;
         while (children[cont].getValue() == "arg") {
             this.arg(children[cont]);
-                // this.taCodeLine = this.lastUsed;
-                this.taCode.push(this.taCodeLine);
+            this.taCodeLine = `PUSH_PARAM ${this.lastUsed}`;
+            this.taCode.push(this.taCodeLine);
+
             cont++;
             if (children[cont].getValue() == ",")
                 cont++;
         }
 
-        this.taCodeLine = "END PARAMS"
+        if (method.type != "void") {
+            this.taCodeLine = `${this.lastUsed} = CALL ${id}, ${cont-2}`;
+            this.taCode.push(this.taCodeLine);
+        } else {
+            this.taCodeLine = `CALL ${id}, ${cont-2}`;
+            this.taCode.push(this.taCodeLine);
+        }
+
+        this.taCodeLine = `POP_PARAMS`;
         this.taCode.push(this.taCodeLine);
 
-        this.taCodeLine = `CALL ${id}`;
-        this.taCode.push(this.taCodeLine);
+        console.log(this.lastUsed);
 
         return method.type;
     } else {
@@ -789,86 +892,4 @@ Visitor.prototype.vLiteral = function(node) {
         this.lastUsed = child.getNext()[0].getValue();
         return "boolean"
     }
-}
-
-Visitor.prototype.vTerm = function(node) {
-    let children = node.getNext();
-
-    let res;
-    if (children[0].getValue() == "factor") {
-        res = this.vFactor(children[0]);
-    } else if (children[1].getValue() == "arith_high_op") {
-        res = this.vArithTerm(node);
-    } else if (children[1].getValue() == "&&") {
-        res = this.vAndTerm(node);
-    }
-
-    return res;
-}
-
-Visitor.prototype.vFactor = function(node) {
-    let children = node.getNext();
-
-    let res;
-    let child = children[0].getValue();
-    if (child == "int_literal") {
-        this.lastUsed = children[0].getNext()[0].getValue();
-        return "int"
-    } else if (child == "(") {
-        res = this.vExpression(children[1]);
-    } else if (child == "location") {
-        res = this.vLocation(children[0]);
-    } else if (child == "bool_literal") {
-        this.lastUsed = children[0].getNext()[0].getValue();
-        return "boolean"
-    } else if (child == "methodCall") {
-        res = this.vMethodCall(children[0]);
-    }
-
-    return res;
-}
-
-Visitor.prototype.vArithTerm = function(node) {
-    let children = node.getNext();
-    let tempTac = ``;
-    let tempLastUsed;
-
-    let resTerm = this.vTerm(children[0]);
-    tempTac += `${this.lastUsed} ${children[1].getNext()[0].getValue()} `;
-
-    let resFactor = this.vFactor(children[2]);
-    tempTac += `${this.lastUsed}`;
-
-    tempTac = `\tt${this.tCont} = ` + tempTac;
-    tempLastUsed = `t${this.tCont}`;
-    this.tCont++;
-
-    if (resTerm != "int") {
-        this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
-        return "error"
-    } else if (resFactor != "int") {
-        this.error += "Error: Cannot use non-integers with operator " + children[1].getNext()[0].getValue() + ". Line " + children[1].getNext()[0].getLine() + ".\n";
-        return "error"
-    }
-
-    this.taCode.push(tempTac);
-    this.lastUsed = tempLastUsed;
-    return "int";
-}
-
-Visitor.prototype.vAndTerm = function(node) {
-    let children = node.getNext();
-
-    let resTerm = this.vTerm(children[0]);
-    let resFactor = this.vFactor(children[2]);
-
-    if (resTerm != "boolean") {
-        this.error += "Error: Cannot use non-booleans with operator &&. Line " + children[1].getLine() + ".\n";
-        return "error"
-    } else if (resFactor != "boolean") {
-        this.error += "Error: Cannot use non-booleans with operator &&. Line " + children[1].getLine() + ".\n";
-        return "error"
-    }
-
-    return "boolean";
 }

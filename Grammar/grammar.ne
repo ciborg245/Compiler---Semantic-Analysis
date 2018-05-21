@@ -7,7 +7,6 @@ let lexer = moo.compile({
 	space: {match: /\s+/, lineBreaks: true},
 	char: /'[a-zA-Z]'/,
 	id:  /[a-zA-Z][a-zA-Z0-9]*/,
-	num: /-?(?:[0-9]|[1-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
     string: /"(?:\\["bfnrt\/\\]|\\u[a-fA-F0-9]{4}|[^"\\])*"/,
     '{': '{',
     '}': '}',
@@ -37,6 +36,7 @@ let lexer = moo.compile({
     'false': 'false',
     '!': '!',
     '.': '.',
+	num: /-?(?:[0-9]|[1-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
 })
 
 lexer.next = (next => () => {
@@ -93,15 +93,35 @@ statement 			-> "if" "(" expression ")" block ("else" block):?
 
 location 			-> (%id | %id "[" expression "]") ("." location):?
 
-expression 			-> location
-					| literal
-					| term
-					| expression arith_op term
-					| expression rel_op term
-					| expression eq_op term
-					| expression cond_op term
-					| "-" expression
-					| "!" expression
+expression 			-> "(" seventhLevel ")"
+					| seventhLevel
+					| omegaLevel
+
+omegaLevel 			-> literal
+					| location
+					| methodCall
+
+firstLevel          -> "-" omegaLevel
+                    | "!" omegaLevel
+                    | omegaLevel
+
+secondLevel         -> secondLevel arith_high_op firstLevel
+                    | firstLevel
+
+thirdLevel          -> thirdLevel arith_op secondLevel
+                    | secondLevel
+
+fourthLevel         -> fourthLevel rel_op thirdLevel
+                    | thirdLevel
+
+fifthLevel          -> fifthLevel eq_op fourthLevel
+                    | fourthLevel
+
+sixthLevel          -> sixthLevel and_op fifthLevel
+                    | fifthLevel
+
+seventhLevel        -> seventhLevel cond_op sixthLevel
+                    | sixthLevel
 
 methodCall 			-> %id "(" (arg ( "," arg):*):? ")"
 
@@ -117,6 +137,8 @@ eq_op 				-> "==" | "!="
 
 cond_op				-> "||"
 
+and_op              -> "&&"
+
 literal 			-> int_literal | char_literal | bool_literal
 
 int_literal 		-> %num
@@ -124,13 +146,3 @@ int_literal 		-> %num
 char_literal 		-> %char
 
 bool_literal 		-> "true" | "false"
-
-term 				-> factor
-					| term arith_high_op factor
-					| term "&&" factor
-
-factor 				-> int_literal
-					| "(" expression ")"
-					| location
-					| bool_literal
-					| methodCall
