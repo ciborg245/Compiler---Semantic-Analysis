@@ -1,0 +1,49 @@
+class Program
+{
+void OutputInt(int n)
+{
+
+}
+
+int InputInt()
+{
+
+	return 0;
+}
+
+int fibonacci(int n)
+{
+	int r;	
+	if (n==0)
+	{
+		r=1;
+	}
+	else
+	{
+		if (n==1)
+		{
+			r=1;
+		}
+		else
+		{
+			r = fibonacci(n - 1) + fibonacci(n - 2);
+		}
+	}
+	return r;
+}
+
+void main()
+{
+	int n;
+	int f;
+	
+	int i;
+	i = 0;
+	while(i<=20)
+	{
+		f = fibonacci(i);
+		OutputInt(f);
+		i = i + 1;
+	}
+}
+}

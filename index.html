@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Compiladores</title>
+        <script>window.$ = window.jQuery = require('jquery');</script>
+        <link href="https://fonts.googleapis.com/css?family=Cairo" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+        <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css"> -->
+        <link rel="stylesheet" href="css/style.css">
+
+    </head>
+
+    <body>
+        <div class="wrapper">
+            <header>
+              <h1>Alejandro Chaclán 15018</h1>
+            </header>
+            <nav>
+                <ul>
+                  <li class="gnav1" id = "nav1">Código</li>
+                  <li class="gnav2" id = "nav2">Árbol Sintáctico</li>
+                  <li class="gnav3" id = "nav3">Errores</li>
+                  <li class="gnav4" id = "nav4">Código Intermedio</li>
+                  <li class="gnav5" id = "nav5">Código Objetivo</li>
+                </ul>
+            </nav>
+            <div class="contents" id="contents">
+                <div class="container">
+                    <article id="page1" class="show top">
+                      <section>
+                        <textarea id = "codeToParseArea" autocomplete="off" wrap="logical" spellcheck="false"></textarea>
+                        <input id = "codeToParseSearchButton" type = "file" name = "archivo" accept='text/plain' onchange = "fileChosen(event, this);" />
+                        <input id = "codeToParseCompileButton" type = "button" value = "Compilar" />
+                      </section>
+                    </article>
+                    <article id="page2">
+                      <section>
+                        <div id = "treeDiv">
+                        </div>
+                      </section>
+                    </article>
+                    <article id="page3">
+                      <section>
+                        <textarea disabled id = "errorsArea"></textarea>
+                      </section>
+                    </article>
+                    <article id="page4">
+                      <section>
+                        <textarea disabled id = "taCodeArea"></textarea>
+                      </section>
+                    </article>
+                    <article id="page5">
+                      <section>
+                        <h1>Tab5 Title</h1>
+                        <p>This is tab five</p>
+                      </section>
+                    </article>
+                </div>
+            </div>
+        </div>
+        <script src="html-js/htmlfunctions.js"></script>
+        <script src='html-js/jquery-ui-1.11.4/jquery-ui.min.js'></script>
+        <script src="html-js/index.js"></script>
+    </body>
+    <script>
+        require('./renderer.js')
+        require('./compiler.js')
+    </script>
+</html>

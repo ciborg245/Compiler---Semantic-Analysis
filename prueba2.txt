@@ -1,0 +1,49 @@
+class Example {
+    int a;
+    boolean b;
+    char c;
+
+    struct test {
+        int x;
+        int y;
+
+		struct temp {
+			int z;
+			int x;
+		} t;
+    }
+
+    void main () {
+        int a;
+        int d;
+		int q[10];
+		struct test asdf;
+		boolean hola;
+
+		hola = true;
+        d = 5;
+
+        if (hola) {
+        	d = 5;
+        }
+
+		while (a < 10) {
+			a = a + 1;
+		}
+
+		if (a == 5) {
+			a = 10;
+		}
+
+		if (a > 5) {
+			d = 5 * 8 / 3;
+		}
+
+		q[3] = 5;
+
+		asdf.t.x = 5;
+
+		d = 5 + 4 * 8 - 4;
+        a = d;
+    }
+}
