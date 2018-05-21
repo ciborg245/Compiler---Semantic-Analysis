@@ -21,6 +21,7 @@ SymbolTable.prototype.deleteScope = function() {
 }
 
 SymbolTable.prototype.addItem = function(key, value) {
+    value.isGlobal = this.symbolTable.length == 1 ? true : false;
     this.symbolTable[this.symbolTable.length-1].setItem(key, value);
 
     this.secondToLastItem = this.lastItem;

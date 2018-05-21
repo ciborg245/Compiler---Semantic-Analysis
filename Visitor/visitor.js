@@ -12,7 +12,8 @@ function Visitor() {
     this.tCont = 0;
     this.labelCont = 0;
     this.ifGlobalCont = [];
-    this.localGlobal = "L";
+    this.localGlobal = null;
+    this.ifFlag = false;
 }
 
 Visitor.prototype.vProgram = function(node) {
@@ -322,7 +323,6 @@ Visitor.prototype.vIfStatement = function(node) {
     let children = node.getNext();
 
     this.ifGlobalCont.push(this.labelCont);
-    // this.taCode.push("IF ");
     let resExpr = this.vExpression(children[2]);
     if (resExpr != "boolean") {
         this.error += "Error: Expression on IF is not boolean. Line " + children[0].getLine() + ".\n"
@@ -522,6 +522,7 @@ Visitor.prototype.vLocation = function(node, local = null, offset = 0) {
                     }
                 } else {
                     let arrayOffset = variable.width / variable.elements * this.lastUsed;
+                    this.localGlobal = variable.isGlobal ? "G" : "L";
                     this.lastUsed = `${this.localGlobal}[${variable.offset + offset + arrayOffset}]`;
                     return variable.type
                 }
@@ -550,6 +551,7 @@ Visitor.prototype.vLocation = function(node, local = null, offset = 0) {
                 }
             }
         } else {
+            this.localGlobal = variable.isGlobal ? "G" : "L";
             this.lastUsed = `${this.localGlobal}[${variable.offset + offset}]`;
             return variable.type
         }
@@ -861,8 +863,6 @@ Visitor.prototype.vMethodCall = function(node) {
 
         this.taCodeLine = `POP_PARAMS`;
         this.taCode.push(this.taCodeLine);
-
-        console.log(this.lastUsed);
 
         return method.type;
     } else {
