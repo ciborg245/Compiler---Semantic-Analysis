@@ -20,12 +20,7 @@ class Example {
 		struct test asdf;
 		boolean hola;
 
-		hola = true;
         d = 5;
-
-        if (hola) {
-        	d = 5;
-        }
 
 		while (a < 10 && a <= 30 || a > 5) {
 			a = a + 1;

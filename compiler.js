@@ -9,8 +9,10 @@
 const fs = require('fs');
 const Parser = require('./src/parser');
 const Visitor = require('./Visitor/visitor');
+const Translator = require('./Target/translator')
 
 //Variables globales de la clase
+var translator = new Translator();
 var visitor = new Visitor();
 var parser = new Parser();
 var tempHTML = "";
@@ -21,7 +23,7 @@ const codeTPCompileButton = document.getElementById('codeToParseCompileButton');
 const treeDiv = document.getElementById('treeDiv');
 const errorsArea = document.getElementById('errorsArea');
 const taCodeArea = document.getElementById('taCodeArea');
-
+const armCodeArea = document.getElementById('armCodeArea');
 
 
 codeTPCompileButton.addEventListener("click", function() {
@@ -52,9 +54,6 @@ codeTPCompileButton.addEventListener("click", function() {
         //Se usa el metodo de "Visitor" para hacer el analisis semantico
         let res = visitor.vProgram(parser.getTree());
 
-
-
-
         if (!res.success) {
             console.log(res.error);
             errorsArea.value = res.error;
@@ -65,7 +64,10 @@ codeTPCompileButton.addEventListener("click", function() {
             taCodeArea.value = "";
             for (var i = 0; i < res.taCode.length; i++)
                 taCodeArea.value += res.taCode[i] + "\n";
-            document.getElementById('nav4').click();
+            translator.translate(res.taCode);
+            code = translator.getCode();
+            armCodeArea.value = "" + code;
+            document.getElementById('nav5').click();
         }
     } else {
         console.log(error);

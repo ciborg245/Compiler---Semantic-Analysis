@@ -332,20 +332,20 @@ Visitor.prototype.vIfStatement = function(node) {
     let tempLastUsed = this.lastUsed;
     let lastIfGlobalCont = this.ifGlobalCont.pop();
 
-    this.taCodeLine = `LABEL_TRUE_${this.labelCont-1}:`;
+    this.taCodeLine = `LABEL_TRUE_${this.labelCont-1}`;
     this.taCode.push(this.taCodeLine);
     let res = this.vBlock(children[4]);
-    this.taCodeLine = `GOTO LABEL_END_IF_${lastIfGlobalCont}:`;
+    this.taCodeLine = `GOTO LABEL_END_IF_${lastIfGlobalCont}`;
     this.taCode.push(this.taCodeLine);
 
 
-    this.taCodeLine = `LABEL_FALSE_${lastIfGlobalCont}:`;
+    this.taCodeLine = `LABEL_FALSE_${lastIfGlobalCont}`;
     this.taCode.push(this.taCodeLine);
     if (children.length > 5) {
         res = res && this.vBlock(children[6]);
     }
 
-    this.taCodeLine = `LABEL_END_IF_${lastIfGlobalCont}:`
+    this.taCodeLine = `LABEL_END_IF_${lastIfGlobalCont}`
     this.taCode.push(this.taCodeLine);
 
     this.labelCont++;
@@ -358,7 +358,7 @@ Visitor.prototype.vWhileStatement = function(node) {
 
     this.ifGlobalCont.push(this.labelCont);
 
-    this.taCodeLine = `LABEL_WHILE_${this.ifGlobalCont}:`;
+    this.taCodeLine = `LABEL_WHILE_${this.ifGlobalCont}`;
     this.taCode.push(this.taCodeLine);
     let expRes = this.vExpression(children[2]);
     if (expRes != "boolean") {
@@ -369,12 +369,12 @@ Visitor.prototype.vWhileStatement = function(node) {
     let tempLastUsed = this.lastUsed;
     let lastIfGlobalCont = this.ifGlobalCont.pop();
 
-    this.taCodeLine = `LABEL_TRUE_${this.labelCont-1}:`;
+    this.taCodeLine = `LABEL_TRUE_${this.labelCont-1}`;
     this.taCode.push(this.taCodeLine);
     let res = this.vBlock(children[4]);
-    this.taCodeLine = `GOTO LABEL_WHILE_${lastIfGlobalCont}:`;
+    this.taCodeLine = `GOTO LABEL_WHILE_${lastIfGlobalCont}`;
     this.taCode.push(this.taCodeLine);
-    this.taCodeLine = `LABEL_FALSE_${lastIfGlobalCont}:`;
+    this.taCodeLine = `LABEL_FALSE_${lastIfGlobalCont}`;
     this.taCode.push(this.taCodeLine);
 
     return res;
@@ -601,7 +601,7 @@ Visitor.prototype.seventhLevel = function(node) {
     } else {
         let leftRes  = this.seventhLevel(children[0]);
 
-        let tempTac = `LABEL_TRUE_${this.lastUsed}:`;
+        let tempTac = `LABEL_TRUE_${this.lastUsed}`;
 
         let rightRes = this.sixthLevel(children[2]);
 

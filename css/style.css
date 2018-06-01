@@ -181,6 +181,16 @@ article section h1 {
     font-family: 'Inconsolata', sans-serif;
 }
 
+#armCodeArea {
+    position: relative;
+    height: calc(100% - 60px);
+    max-height: calc(100% - 60px);
+    max-width: 95%;
+    width: 95%;
+    overflow-y: scroll;
+    font-family: 'Inconsolata', sans-serif;
+}
+
 #codeToParseSearchButton {
     position: relative;
     margin: 10px 0 0 0;
