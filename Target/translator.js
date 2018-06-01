@@ -96,11 +96,11 @@ Translator.prototype.getReg = function(ins) {
     let rop1;
     let rop2;
     let rres;
-    let tempReg1;
-    let tempReg2;
+    var tempReg1;
+    var tempReg2;
 
 
-    if (this.regs.find(el => el === op1) == null && op1 != null && (op1.includes('L') || op1.includes('G'))) {
+    if (this.regs.find(el => el === op1) == null && op1 != null ) {
         tempReg1 = this.getEmptyReg();
         if (tempReg1 != null) {
             rop1 = tempReg1;
@@ -114,7 +114,7 @@ Translator.prototype.getReg = function(ins) {
         rop1 = this.regs.indexOf(op1)
     }
 
-    if (this.regs.find(el => el === op2) == null && op2 != null && (op2.includes('L') || op2.includes('G'))) {
+    if (this.regs.find(el => el === op2) == null && op2 != null) {
         tempReg2 = this.getEmptyReg();
         if (tempReg2 != null) {
             rop2 = tempReg2;
@@ -132,6 +132,10 @@ Translator.prototype.getReg = function(ins) {
         rres = tempReg;
         this.regs[tempReg] = res;
     }
+
+
+    this.regs[tempReg1] = null;
+    this.regs[tempReg2] = null;
 
     if (what == "=") {
         if (op == null) {
@@ -162,6 +166,10 @@ Translator.prototype.getReg = function(ins) {
                 this.armCode += `${op2}\n`
             }
         }
+
+        if (!res.includes('t')) {
+            this.setAddress(res, rres);
+        }
     }
     else {
         if (what == "==") {
@@ -183,6 +191,7 @@ Translator.prototype.getReg = function(ins) {
             this.armCode += `${op1}, `
         }
     }
+
 }
 
 Translator.prototype.getCode = function() {
@@ -207,8 +216,9 @@ Translator.prototype.getAddress = function(v) {
 
 Translator.prototype.setAddress = function(key, value) {
     if (this.hashMap.hasOwnProperty(key)) {
-        this.hashMap.push(value);
+        this.hashMap[key].push(value);
     } else {
         this.hashMap[key] = [value]
     }
+    this.armCode += `\tsw ${value}, ${key.replace(']','').replace('[','')}\n`
 }
